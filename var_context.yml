@@ -1,0 +1,4 @@
+---
+ source_id_list: "{{ sources | map(attribute='id') | list }}"
+
+ has_duplicates: "{{ source_id_list | count != source_id_list | list | unique | count }}"

@@ -1,0 +1,15 @@
+---
+- name: Get source {{ source.id}} Status
+  uri:
+    url: 'https://cribl.tssa.vodafone.com:9000/api/v1/m/{{ worker_group_id }}/system/status/inputs/{{source.id}}'
+    method: GET
+    headers:
+      accept: application/json
+      Authorization: 'Bearer {{auth.json.token}}'
+  register: source_status
+- name: Assert that source_status is healthy
+  assert:
+    that:
+      -  source_status.json["items"][0]["status"].health == "Green"
+    fail_msg: "Source is unhealthy !"
+    success_msg: "Source is Healthy "

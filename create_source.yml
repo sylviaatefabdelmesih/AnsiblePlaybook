@@ -1,0 +1,156 @@
+---
+- name: REST API to create splunk TCP source
+  uri:
+    url: 'https://cribl.tssa.vodafone.com:9000/api/v1/m/{{ worker_group_id }}/system/inputs'
+    method: POST
+    body: >
+      {
+        "id": "{{ source.id }}",
+        "streamtags": ["BU: {{ source.local_market }}"],
+        "host": "0.0.0.0",
+        "tls": {
+          "disabled": true,
+          "requestCert": false,
+          "privKeyPath": "/opt/SP/cribl/cribl_certs/Cribl_ingest_exp_20200511.key",
+          "certPath": "/opt/SP/cribl/cribl_certs/Cribl_ingest_exp_20200511.crt",
+          "caPath": "/opt/SP/cribl/cribl_certs/Cribl_ingest_exp_20200511.pem"
+        },
+        "type": "{{ source.type }}",
+        "port": {{source.port }}
+      }
+    body_format: json
+    headers:
+      accept: application/json
+      Authorization: 'Bearer {{ auth.json.token}}'
+      Content-Type: application/json
+  when: source.type == "splunk"
+- name: loop vars through some tasks for creating new Splunk HEC source
+  block:
+    - name: Generate HEC token for each source
+      command: python3 -c "import secrets; print(secrets.token_hex(4) + '-' + secrets.token_hex(2) + '-' + secrets.token_hex(2) + '-' + secrets.token_hex(2) + '-' + secrets.token_hex(6))"
+      register: hec_token_output
+    - name: Display the generated HEC token
+      debug:
+        msg: "Generated HEC Token: {{ hec_token_output.stdout }}"
+    - name: REST API to create splunk HEC source
+      uri:
+        url: 'https://cribl.tssa.vodafone.com:9000/api/v1/m/{{ worker_group_id }}/system/inputs'
+        method: POST
+        body: >
+          {
+            "id": "{{ source.id }}",
+            "streamtags": ["BU:{{ source.local_market }}"],
+            "host": "0.0.0.0",
+            "tls": {
+              "disabled": false,
+              "requestCert": false,
+              "caPath": "/opt/SP/cribl/cribl_certs/Cribl_ingest_exp_20200511.pem",
+              "certPath": "/opt/SP/cribl/cribl_certs/Cribl_ingest_exp_20200511.crt",
+              "privKeyPath": "/opt/SP/cribl/cribl_certs/Cribl_ingest_exp_20200511.key"
+            },
+            "splunkHecAPI": "/services/collector",
+            "type": "{{ source.type }}",
+            "port": {{source.port }},
+              "authTokens": [
+                {
+                  "enabled": true,
+                  "token": "{{hec_token_output.stdout}}"
+                }
+              ]
+          }
+        body_format: json
+        headers:
+          accept: application/json
+          Authorization: 'Bearer {{ auth.json.token}}'
+          Content-Type: application/json
+      register: result
+  when: source.type == "splunk_hec"
+- name: REST API to create Raw TCP source
+  uri:
+    url: 'https://cribl.tssa.vodafone.com:9000/api/v1/m/{{ worker_group_id }}/system/inputs'
+    method: POST
+    body: >
+      {
+        "id": "{{ source.id }}",
+        "disabled": false,
+        "sendToRoutes": true,
+        "pqEnabled": false,
+        "streamtags": ["BU: {{ source.local_market }}"],
+        "host": "0.0.0.0",
+        "tls": {
+          "disabled": false,
+          "requestCert": false,
+          "privKeyPath": "/opt/SP/cribl/cribl_certs/Cribl_discovery_ingest_exp_20220604.key",
+          "certPath": "/opt/SP/cribl/cribl_certs/Cribl_discovery_ingest_exp_20220604.crt",
+          "caPath": "/opt/SP/cribl/cribl_certs/Cribl_discovery_ingest_exp_20220604.pem"
+        },
+        "type": "{{ source.type }}",
+        "port": {{source.port }}
+      }
+    body_format: json
+    headers:
+      accept: application/json
+      Authorization: 'Bearer {{ auth.json.token}}'
+      Content-Type: application/json
+  register: result
+  when: source.type == "tcp"
+- name: loop vars through some tasks for creating new Raw HTTP source
+  block:
+    - name: Generate Raw HTTP token for each source
+      command: python3 -c "import secrets; print(secrets.token_hex(4) + '-' + secrets.token_hex(2) + '-' + secrets.token_hex(2) + '-' + secrets.token_hex(2) + '-' + secrets.token_hex(6))"
+      register: http_token_output
+    - name: Display the generated Raw HTTP token
+      debug:
+        msg: "Generated Raw HTTP  Token: {{ http_token_output.stdout }}"
+    - name: REST API to create splunk Raw HTTP  source
+      uri:
+        url: 'https://cribl.tssa.vodafone.com:9000/api/v1/m/{{ worker_group_id }}/system/inputs'
+        method: POST
+        body: >
+          {
+            "id": "{{ source.id }}",
+            "streamtags": ["BU:{{ source.local_market }}"],
+            "host": "0.0.0.0",
+            "tls": {
+              "disabled": false,
+              "requestCert": false,
+              "caPath": "/opt/SP/cribl/cribl_certs/Cribl_ingest_exp_20200511.pem",
+              "certPath": "/opt/SP/cribl/cribl_certs/Cribl_ingest_exp_20200511.crt",
+              "privKeyPath": "/opt/SP/cribl/cribl_certs/Cribl_ingest_exp_20200511.key"
+            },
+            "type": "{{ source.type }}",
+            "port": {{ source.port }},
+            "authTokens": ["{{http_token_output.stdout}}"]
+          }
+        body_format: json
+        headers:
+          accept: application/json
+          Authorization: 'Bearer {{ auth.json.token}}'
+          Content-Type: application/json
+      register: result
+  when: source.type == "http"
+- name: REST API to create Syslog source
+  uri:
+    url: 'https://cribl.tssa.vodafone.com:9000/api/v1/m/{{ worker_group_id }}/system/inputs'
+    method: POST
+    body: >
+      {
+        "id": "{{ source.id }}",
+        "streamtags": ["BU: {{ source.local_market }}"],
+        "host": "0.0.0.0",
+        "tls": {
+          "disabled": false,
+          "requestCert": false,
+          "privKeyPath": "/opt/SP/cribl/cribl_certs/Cribl_ingest_exp_20200511.key",
+          "certPath": "/opt/SP/cribl/cribl_certs/Cribl_ingest_exp_20200511.crt",
+          "caPath": "/opt/SP/cribl/cribl_certs/Cribl_ingest_exp_20200511.pem"
+        },
+        "type": "{{ source.type }}",
+        "tcpPort": {{source.port }}
+      }
+    body_format: json
+    headers:
+      accept: application/json
+      Authorization: 'Bearer {{ auth.json.token}}'
+      Content-Type: application/json
+  when: source.type == "syslog"

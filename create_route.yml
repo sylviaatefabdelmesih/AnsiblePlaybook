@@ -1,0 +1,46 @@
+
+---
+- name: get all routes in current group
+  uri:
+    url: 'https://cribl.tssa.vodafone.com:9000/api/v1/m/{{ worker_group_id }}/routes/default'
+    method: GET
+    headers:
+      accept: application/json
+      Authorization: 'Bearer {{auth.json.token}}'
+  register: routes
+- name: Set variable
+  set_fact:
+    original_json: "{{ routes.json[\"items\"][0]}}"
+- name: Setting up the new route
+  set_fact:
+    new_route: [ {
+      "name": "{{ source.id}}",
+      "disabled": false,
+      "filter": "__inputId=='{{source.type }}:{{ source.id }}'",
+      "pipeline": "passthru",
+      "enableOutputExpression": false,
+      "output": "{{ output }}",
+      "description": "{{ source.local_market}}",
+      "final": true
+    }]
+- name: Update JSON with new route (Python)
+  set_fact:
+    updated_json: "{{ new_route |union(original_json.routes)}}"
+- name: 'update routes'
+  uri:
+    url: 'https://cribl.tssa.vodafone.com:9000/api/v1/m/{{ worker_group_id }}/routes/default'
+    method: PATCH
+    body:
+      id: default
+      groups: {}
+      comments: []
+      routes: "{{ updated_json }}"
+    body_format: json
+    headers:
+      accept: application/json
+      Authorization: 'Bearer {{auth.json.token}} '
+      Content-Type: application/json
+  register: result_routes
+- name: Process routes response
+  debug:
+    msg: "{{ result_routes }}"

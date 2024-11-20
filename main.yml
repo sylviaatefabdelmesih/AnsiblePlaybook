@@ -1,0 +1,108 @@
+---
+- hosts: cribl_master
+  vars:
+    - updated_json: {}
+  vars_files:
+    - vars.yml
+    - vars_context.yml
+  gather_facts: false
+  tasks:
+    - name: Check for duplicates IDs
+      fail:
+        msg: "duplicates were found in the sources' ids, check id values added in vars.yml"
+      when: has_duplicates|lower == "true"
+    - debug:
+        msg:
+          - "The type of port is: {{item.port | type_debug}}"
+      loop: "{{ sources }}"
+    - name: Make sure that Worker Group ID provided is one of the following  "PROD_HF_Milan_M2", "PROD_HF_Dublin_M2", "PROD_HF_Ratingen_M2", "DEV_VM_Ratingen_M2", "AWS_PROD_HF_Frankfurt_M2", "AWS_PROD_HF_Ireland_M2" or "default"
+      assert:
+        that:
+          - worker_group_id == "PROD_HF_Milan_M2" or worker_group_id == "PROD_HF_Dublin_M2" or worker_group_id == "PROD_HF_Ratingen_M2" or worker_group_id == "DEV_VM_Ratingen_M2" or worker_group_id == "AWS_PROD_HF_Frankfurt_M2" or worker_group_id == "AWS_PROD_HF_Ireland_M2" or worker_group_id == "default"
+        fail_msg: "Worker Group ID entered is not supported in this playbook!"
+        success_msg: "Worker Group ID is {{ worker_group_id }}"
+    - name: loop vars through some tasks for checking and assersion
+      include_tasks: vars_check.yml
+      loop: "{{ sources }}"
+      loop_control:
+        loop_var: source
+    - name: setting up the correct output for the new route
+      set_fact:
+        output: "{{ 'Splunkindexers' if worker_group_id == 'default' else 'IDX_Cluster_RAT_secured_4_pipelines' if worker_group_id == 'PROD_HF_Ratingen_M2' else 'IDX_Cluster_RAT_secured_4_pipelines' if worker_group_id == 'PROD_HF_Milan_M2' else 'IDX_Cluster_DUB_secured_4_pipelines' if worker_group_id == 'PROD_HF_Dublin_M2' else 'IDX_Cluster_RAT_secured_2_pipelines' if worker_group_id == 'DEV_VM_Ratingen_M2' else 'Splunk_Indexer_Manager' if worker_group_id == 'AWS_PROD_HF_Frankfurt_M2' else 'Splunk_Indexer_Manager' if worker_group_id == 'AWS_PROD_HF_Ireland_M2' }}"
+    - name: Authenticating to Cribl leader
+      uri:
+        url: 'https://cribl.tssa.vodafone.com:9000/api/v1/auth/login'
+        method: POST
+        body:
+          username: admin
+          password: "{{cribl_admin_password}}"
+        body_format: json
+        headers:
+          accept: application/json
+          Content-Type: application/json
+      register: auth
+    - name: REST API to Check status of the worker group
+      uri:
+        url: 'https://cribl.tssa.vodafone.com:9000/api/v1/version/status?group={{ worker_group_id }}'
+        method: GET
+        headers:
+          accept: application/json
+          Authorization: 'Bearer {{ auth.json.token}}'
+          Content-Type: application/json
+      register: status
+    - name: Check that no uncommited changes in worker group {{ worker_group_id }}
+      assert:
+        that:
+          - status.json["items"][0]["modified"] == []
+        fail_msg: "There's uncomitted changes for this worker group in file/s {{ status.json['items'][0]['modified'] }}, Please commit them and then run the pipeline again"
+    - name: loop vars through some tasks for creating new sources
+      include_tasks: create_sources.yml
+      loop: "{{ sources }}"
+      loop_control:
+        loop_var: source
+    - name: loop vars through some tasks for creating new routes for the newely created sources
+      include_tasks: create_routes.yml
+      loop: "{{ sources }}"
+      loop_control:
+        loop_var: source
+      when: source.type == "splunk"
+
+#commit, deploy and check status
+    - name: Commit Changes
+      uri:
+        url: 'https://cribl.tssa.vodafone.com:9000/api/v1/version/commit'
+        method: POST
+        body:
+          files:
+            - groups/{{ worker_group_id }}/local/cribl/inputs.yml
+            - groups/{{ worker_group_id }}/local/cribl/pipelines/route.yml
+          group: default
+          message: 'commit creation of new sources and their routes'
+        body_format: json
+        headers:
+          accept: application/json
+          Authorization: 'Bearer {{ auth.json.token }}'
+          Content-Type: application/json
+      register: currentversion
+    - name: Echo the new commit version
+      debug:
+        msg: "{{ currentversion.json[\"items\"][0].commit}}"
+    - name: Deploy commit "{{ currentversion.json['items'][0].commit}}"
+      uri:
+        url: 'https://cribl.tssa.vodafone.com:9000/api/v1/master/groups/{{ worker_group_id }}/deploy'
+        method: PATCH
+        body:
+          version: '{{ currentversion.json["items"][0].commit}}'
+        body_format: json
+        headers:
+          accept: application/json
+          Authorization: 'Bearer {{auth.json.token}}'
+          Content-Type: application/json
+    - name: Sleep for 10 sec and then check status
+      pause:
+        seconds: 10
+    - name: loop vars through some tasks to check sources status
+      include_tasks: check_status.yml
+      loop: "{{ sources }}"
+      loop_control:
+        loop_var: source

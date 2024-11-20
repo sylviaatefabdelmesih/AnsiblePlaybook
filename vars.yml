@@ -1,0 +1,29 @@
+---
+Please insert the worker_group_id inside double quotes "" i.e. "PROD_HF_Milan_M2", "PROD_HF_Dublin_M2", "PROD_HF_Ratingen_M2", "DEV_VM_Ratingen_M2", "AWS_PROD_HF_Frankfurt_M2", "AWS_PROD_HF_Ireland_M2"
+worker_group_id: "default"
+sources:
+  - source: 1
+    Please insert the type of cribl source you want to create inside double quotes "" Please insert "splunk" for Splunk TCP, "splunk_hec" for Splunk HEC, "tcp" for Raw TCP, "http" for Raw HTTP or "syslog" for Syslog
+    type: "splunk"
+
+    please insert the source name following the correct naming convention SR-ticketnumber_appname_env[optional]
+    id: "SR-INC000011111122_test_app_dev"
+
+    Please insert the port you want your source configured to
+    port: 16505
+
+    Please insert the Local market your source belong to 
+    local_market: "IT4IT"
+  
+  - source: 2
+    Please insert the type of cribl source you want to create inside double quotes "" Please insert "splunk" for Splunk TCP, "splunk_hec" for Splunk HEC, "tcp" for Raw TCP, "http" for Raw HTTP or "syslog" for Syslog
+    type: "splunk"
+
+    please insert the source name following the correct naming convention SR-ticketnumber_appname_env[optional]
+    id: "SR-INC000011223344_test_app_2_dev"
+
+    Please insert the port you want your source configured to
+    port: 16506
+
+    Please insert the Local market your source belong to 
+    local_market: "IT4IT"

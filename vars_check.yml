@@ -1,0 +1,29 @@
+---
+- name: Assertion of vars included
+  block:
+    - name: Make sure that Cribl Source Type provided is one of the following  "splunk" for Splunk TCP, "splunk_hec" for Splunk HEC, "tcp" for Raw TCP, "http" for Raw HTTP or "syslog" for Syslog
+      assert:
+        that:
+          - source.type == "splunk" or source.type == "splunk_hec" or source.type == "tcp" or source.type == "http" or source.type == "syslog"
+        fail_msg: "Cribl Source Type entered is not supported in this playbook!"
+        success_msg: "Cribl Source Type is {{ source.type }}"
+    - name: Make sure that Cribl Source ID provided is following the correct naming convention SR-ticketnumber_appname_env[optional]
+      assert:
+        that:
+          - source.id is regex("^(SR-INC[0-9]{12}(_[a-zA-Z0-9]+)+|FT-[0-9]{5}(_[a-zA-Z0-9]+)+)(?:$|_p|_pp|_dev|_s)$")
+        fail_msg: "Cribl Source ID entered is not supported in this playbook!"
+        success_msg: "Cribl Source ID is {{ source.id }}"
+    - name: Make sure that Local Market provided is following the correct naming convention ^[a-zA-Z0-9_\-&\s]+$
+      assert:
+        that:
+          - source.local_market is regex("^[a-zA-Z0-9_\-&\s]+$")
+        fail_msg: "Local Market entered is not supported in this playbook!"
+        success_msg: "Cribl Source ID is {{ source.local_market }}"
+    - name: Check if variable port is an integer number with 5 digits
+      assert:
+        that:
+          - source.port is defined
+          - source.port | int | string | length == 5
+          - source.port is regex('^[0-9]{5}$')
+        fail_msg: "The variable 'port' is not a 5-digit integer!"
+        success_msg: "The variable 'port' is a valid 5-digit integer and is {{ source.port }}"
